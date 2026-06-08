@@ -30,8 +30,9 @@ export default function RootLayout({
       <body style={{ fontFamily: "var(--font-inter), sans-serif" }}>
         <header className="nav-header">
           <div className="container nav-container">
-            <Link href="/" className="logo" style={{ fontFamily: "var(--font-outfit), sans-serif" }} id="nav-logo">
-              <span className="logo-accent">Shalpl</span>Menu
+            <Link href="/" className="logo" style={{ display: "flex", alignItems: "center", gap: "12px" }} id="nav-logo">
+              <img src="/shalpllogo.png" alt="Shalpl Logo" style={{ height: "45px", width: "auto", objectFit: "contain" }} />
+              <span className="logo-accent" style={{ fontFamily: "var(--font-outfit), sans-serif" }}>Shalpl</span>Menu
             </Link>
             <nav className="nav-links">
               <Link href="/" className="nav-link" id="nav-link-home">

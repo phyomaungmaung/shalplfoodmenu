@@ -96,14 +96,19 @@ export default function MenuPage() {
     <div style={{ minHeight: "100vh" }}>
       {/* Hero Header */}
       <section className="hero">
-        <div className="container">
-          <div className="hero-badge">
-            <Sparkles size={14} /> Exquisite Culinary Art
+        <div className="container hero-container">
+          <div className="hero-logo-wrapper">
+            <img src="/shalpllogo.png" alt="Shalpl Logo" className="hero-logo" />
           </div>
-          <h1 className="hero-title">Savor Every Moment</h1>
-          <p className="hero-subtitle">
-            Explore our curated culinary selections crafted by world-class chefs, featuring premium local ingredients and global flavors.
-          </p>
+          <div className="hero-content">
+            <div className="hero-badge">
+              <Sparkles size={14} /> Premium Food Menu
+            </div>
+            <h1 className="hero-title">Shalpl Food Menu</h1>
+            <p className="hero-subtitle">
+              အရသာရှိပြီး သန့်ရှင်းလတ်ဆတ်တဲ့ ဟင်းလျာမျိုးစုံကို တစ်နေရာတည်းမှာ စုံစုံလင်လင် ရှာဖွေကြည့်ရှုလိုက်ပါ။
+            </p>
+          </div>
         </div>
       </section>
 
