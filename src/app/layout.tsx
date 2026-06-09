@@ -32,7 +32,7 @@ export default function RootLayout({
           <div className="container nav-container">
             <Link href="/" className="logo" style={{ display: "flex", alignItems: "center", gap: "12px" }} id="nav-logo">
               <img src="/shalpllogo.png" alt="Shalpl Logo" style={{ height: "45px", width: "auto", objectFit: "contain" }} />
-              <span className="logo-accent" style={{ fontFamily: "var(--font-outfit), sans-serif" }}>Shalpl</span>Menu
+              <span className="logo-accent" style={{ fontFamily: "var(--font-outfit), sans-serif" }}>Shalpal</span>Menu
             </Link>
             <nav className="nav-links">
               <Link href="/" className="nav-link" id="nav-link-home">
@@ -48,7 +48,7 @@ export default function RootLayout({
 
         <footer className="footer">
           <div className="container">
-            <p style={{ fontFamily: "var(--font-outfit), sans-serif" }}>&copy; {new Date().getFullYear()} Shalpl FoodMenu. All rights reserved.</p>
+            <p style={{ fontFamily: "var(--font-outfit), sans-serif" }}>&copy; {new Date().getFullYear()} Shalpal FoodMenu. All rights reserved.</p>
           </div>
         </footer>
       </body>
