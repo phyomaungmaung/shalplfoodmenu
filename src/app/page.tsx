@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { getFoodItems } from "./actions";
 import { Search, Sparkles, AlertCircle } from "lucide-react";
 
 interface FoodItem {
@@ -130,19 +130,12 @@ export default function MenuPage() {
       const from = pageToFetch * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
-      let query = supabase
-        .from("food_items")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (search.trim()) {
-        query = query.ilike("name", `%${search.trim()}%`);
-      }
-
-      const { data, error } = await query.range(from, to);
+      const limit = ITEMS_PER_PAGE;
+      const offset = from;
+      const { data, error } = await getFoodItems(search, limit, offset);
 
       if (error) {
-        throw error;
+        throw new Error(error);
       }
 
       if (data && data.length > 0) {
@@ -157,8 +150,8 @@ export default function MenuPage() {
         setUsingMockData(false);
       }
     } catch (err) {
-      console.error("Supabase error fetching food items:", err);
-      // Fallback to mock data if Supabase query fails and it is the initial fetch
+      console.error("Error fetching food items:", err);
+      // Fallback to mock data if query fails and it is the initial fetch
       if (isInitial) {
         const mockFiltered = MOCK_ITEMS.filter((item) =>
           item.name.toLowerCase().includes(search.toLowerCase())
@@ -195,7 +188,7 @@ export default function MenuPage() {
 
       {/* Main Menu Section */}
       <section className="container" style={{ marginTop: "40px" }}>
-        {/* Supabase Mock Alert Warning if using mock data */}
+        {/* Mock Alert Warning if using mock data */}
         {usingMockData && (
           <div
             style={{
@@ -213,7 +206,7 @@ export default function MenuPage() {
           >
             <AlertCircle size={18} />
             <span>
-              <strong>Note:</strong> Showing pre-loaded demo menu items. Once you insert food items into your Supabase database table `food_items`, this page will dynamically display your custom menu.
+              <strong>Note:</strong> Showing pre-loaded demo menu items. Once you insert food items into your database table `food_items`, this page will dynamically display your custom menu.
             </span>
           </div>
         )}

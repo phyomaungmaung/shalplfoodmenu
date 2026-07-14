@@ -1,4 +1,4 @@
-const { createClient } = require("@supabase/supabase-js");
+const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 
@@ -11,19 +11,20 @@ if (!fs.existsSync(envPath)) {
 
 const envContent = fs.readFileSync(envPath, "utf8");
 const getEnvVal = (key) => {
-  const match = envContent.match(new RegExp(`${key}\\s*=\\s*(.*)`));
+  const match = envContent.match(new RegExp(`^\\s*${key}\\s*=\\s*"?([^"]*)"?`, "m"));
   return match ? match[1].trim() : null;
 };
 
-const supabaseUrl = getEnvVal("NEXT_PUBLIC_SUPABASE_URL");
-const supabaseAnonKey = getEnvVal("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+const databaseUrl = getEnvVal("DATABASE_URL");
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Error: Missing Supabase environment variables in .env.local");
+if (!databaseUrl) {
+  console.error("Error: Missing DATABASE_URL environment variable in .env.local");
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const pool = new Pool({
+  connectionString: databaseUrl,
+});
 
 const MOCK_ITEMS = [
   {
@@ -66,53 +67,64 @@ const ADMIN_ACCOUNTS = [
 ];
 
 async function seed() {
-  console.log("Seeding Supabase database...");
+  console.log("Seeding PostgreSQL database...");
   
-  // 1. Seed admin accounts
   try {
+    console.log("Creating tables if they don't exist...");
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS food_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        price NUMERIC(10, 2) NOT NULL,
+        photo_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    console.log("Tables created successfully.");
+
+    // 1. Seed admin accounts
     console.log("Seeding admin_users table...");
-    const { data: existingAdmin, error: checkAdminError } = await supabase
-      .from("admin_users")
-      .select("id")
-      .limit(1);
-
-    if (checkAdminError) {
-      console.warn("Notice: admin_users table verify failed. Ensure table is created in Supabase SQL editor.");
-      throw checkAdminError;
+    for (const admin of ADMIN_ACCOUNTS) {
+      await pool.query(
+        `INSERT INTO admin_users (username, password) 
+         VALUES ($1, $2) 
+         ON CONFLICT (username) DO NOTHING`,
+        [admin.username, admin.password]
+      );
     }
+    console.log("Successfully seeded admin accounts!");
 
-    const { data: insertedAdmin, error: insertAdminError } = await supabase
-      .from("admin_users")
-      .upsert(ADMIN_ACCOUNTS, { onConflict: "username" })
-      .select();
-
-    if (insertAdminError) throw insertAdminError;
-    console.log(`Successfully seeded ${insertedAdmin.length} admin accounts!`);
-  } catch (err) {
-    console.error("Admin seeding failed:", err.message);
-  }
-
-  // 2. Seed food items
-  try {
+    // 2. Seed food items
     console.log("Seeding food_items table...");
-    const { data: existingItems, error: checkError } = await supabase
-      .from("food_items")
-      .select("id")
-      .limit(1);
-
-    if (checkError) {
-      throw checkError;
+    // Check if food_items is empty
+    const res = await pool.query("SELECT COUNT(*) FROM food_items");
+    if (parseInt(res.rows[0].count) === 0) {
+      for (const item of MOCK_ITEMS) {
+        await pool.query(
+          "INSERT INTO food_items (name, price, photo_url) VALUES ($1, $2, $3)",
+          [item.name, item.price, item.photo_url]
+        );
+      }
+      console.log(`Successfully seeded ${MOCK_ITEMS.length} food items!`);
+    } else {
+      console.log("food_items table already has data, skipping seed.");
     }
-
-    const { data: insertedItems, error: insertError } = await supabase
-      .from("food_items")
-      .insert(MOCK_ITEMS)
-      .select();
-
-    if (insertError) throw insertError;
-    console.log(`Successfully seeded ${insertedItems.length} food items!`);
+    
   } catch (err) {
-    console.error("Food items seeding failed:", err.message);
+    console.error("Seeding failed:", err.message);
+  } finally {
+    await pool.end();
   }
 }
 

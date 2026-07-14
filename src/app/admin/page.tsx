@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { loginAdmin, getAllFoodItems, deleteFoodItem, addFoodItem, updateFoodItem, uploadImage } from "../actions";
 import { Plus, Edit2, Trash2, Upload, Link as LinkIcon, Loader, CheckCircle2, AlertCircle, X, Sparkles } from "lucide-react";
 
 interface FoodItem {
@@ -61,15 +61,11 @@ export default function AdminPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("admin_users")
-        .select("*")
-        .eq("username", inputUsername)
-        .eq("password", inputPassword);
+      const { success, error } = await loginAdmin(inputUsername, inputPassword);
 
-      if (error) throw error;
+      if (error) throw new Error(error);
 
-      if (data && data.length > 0) {
+      if (success) {
         setIsAuthenticated(true);
         sessionStorage.setItem("admin_auth", "true");
         setLoginError("");
@@ -119,16 +115,13 @@ export default function AdminPage() {
   async function fetchItems() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("food_items")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await getAllFoodItems();
 
-      if (error) throw error;
+      if (error) throw new Error(error);
       setItems(data || []);
     } catch (err) {
       console.error("Fetch items error:", err);
-      showToast("error", "Could not load food items from Supabase. Ensure table structure is created.");
+      showToast("error", "Could not load food items from database. Ensure table structure is created.");
     } finally {
       setLoading(false);
     }
@@ -151,24 +144,14 @@ export default function AdminPage() {
     });
   };
 
-  const uploadFileToSupabase = async (file: File): Promise<string> => {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { data, error } = await supabase.storage
-      .from("food-photos")
-      .upload(filePath, file);
-
-    if (error) {
-      throw error;
+  const uploadFileToServer = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { url, error } = await uploadImage(formData);
+    if (error || !url) {
+      throw new Error(error || "Upload failed");
     }
-
-    const { data: publicUrlData } = supabase.storage
-      .from("food-photos")
-      .getPublicUrl(filePath);
-
-    return publicUrlData.publicUrl;
+    return url;
   };
 
   const handleOpenAddModal = () => {
@@ -189,7 +172,7 @@ export default function AdminPage() {
     setPhotoUrl(item.photo_url || "");
     setSelectedFile(null);
     setFilePreview(null);
-    setImageSource(item.photo_url && item.photo_url.includes("supabase.co/storage") ? "file" : "url");
+    setImageSource(item.photo_url && item.photo_url.startsWith("/uploads/") ? "file" : "url");
     setModalOpen(true);
   };
 
@@ -205,7 +188,7 @@ export default function AdminPage() {
     if (imageSource === "file" && selectedFile) {
       setUploadingImage(true);
       try {
-        finalPhotoUrl = await uploadFileToSupabase(selectedFile);
+        finalPhotoUrl = await uploadFileToServer(selectedFile);
         showToast("success", "Photo uploaded successfully!");
       } catch (err) {
         console.warn("Storage upload failed, falling back to base64 encoding:", err);
@@ -231,26 +214,19 @@ export default function AdminPage() {
     try {
       if (editingItem) {
         // UPDATE
-        const { data, error } = await supabase
-          .from("food_items")
-          .update(itemData)
-          .eq("id", editingItem.id)
-          .select();
+        const { data, error } = await updateFoodItem(editingItem.id, itemData.name, itemData.price, itemData.photo_url);
 
-        if (error) throw error;
+        if (error || !data) throw new Error(error || "Update failed");
         
-        setItems(items.map((item) => (item.id === editingItem.id ? data[0] : item)));
+        setItems(items.map((item) => (item.id === editingItem.id ? data : item)));
         showToast("success", "Food item updated successfully!");
       } else {
         // CREATE
-        const { data, error } = await supabase
-          .from("food_items")
-          .insert([itemData])
-          .select();
+        const { data, error } = await addFoodItem(itemData.name, itemData.price, itemData.photo_url);
 
-        if (error) throw error;
+        if (error || !data) throw new Error(error || "Create failed");
 
-        setItems([data[0], ...items]);
+        setItems([data, ...items]);
         showToast("success", "Food item added successfully!");
       }
       setModalOpen(false);
@@ -265,12 +241,9 @@ export default function AdminPage() {
     if (!confirm("Are you sure you want to delete this menu item?")) return;
 
     try {
-      const { error } = await supabase
-        .from("food_items")
-        .delete()
-        .eq("id", id);
+      const { error } = await deleteFoodItem(id);
 
-      if (error) throw error;
+      if (error) throw new Error(error);
 
       setItems(items.filter((item) => item.id !== id));
       showToast("success", "Food item deleted successfully!");
@@ -440,7 +413,7 @@ export default function AdminPage() {
             color: "var(--text-secondary)"
           }}
         >
-          <p style={{ fontSize: "16px", marginBottom: "16px" }}>No items found in your Supabase database table.</p>
+          <p style={{ fontSize: "16px", marginBottom: "16px" }}>No items found in your database table.</p>
           <button className="btn btn-primary" onClick={handleOpenAddModal} id="first-add-btn">
             Create Your First Food Item
           </button>
